@@ -35,9 +35,12 @@ class LinuxDoBrowser:
         """初始化浏览器、日志信息以及统计变量"""
         options = webdriver.ChromeOptions()
 
-        # 使用 fake_useragent 随机生成 Mac 的 User-Agent
+        # 使用 fake_useragent 随机生成 macOS 的 User-Agent
         ua = UserAgent()
         user_agent = ua.random
+        while 'Macintosh' not in user_agent:
+            user_agent = ua.random
+        
         options.add_argument(f'user-agent={user_agent}')
 
         # 其他Chrome配置
