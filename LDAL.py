@@ -37,11 +37,11 @@ class LinuxDoBrowser:
 
         # 使用 fake_useragent 随机生成 macOS + Google Chrome 的 User-Agent
         ua = UserAgent()
-        user_agent = ua.chrome  # 生成 macOS 上的 Chrome UA
 
-        # 确保生成的 User-Agent 是 macOS + Chrome 组合
-        if 'Macintosh' not in user_agent:
-            user_agent = ua['macintosh'].chrome
+        # 生成随机的 Chrome User-Agent，并确保它来自 macOS
+        user_agent = ua.random
+        while "Macintosh" not in user_agent or "Chrome" not in user_agent:
+            user_agent = ua.random
 
         options.add_argument(f'user-agent={user_agent}')
 
