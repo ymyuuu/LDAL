@@ -1,4 +1,4 @@
-name: Python Selenium Automation
+name: LDAL
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  run-selenium:
+  run-LDAL:
     runs-on: macos-latest  # 使用 macOS 环境
 
     env:
@@ -28,9 +28,5 @@ jobs:
         python -m pip install --upgrade pip
         pip install selenium requests pytz fake_useragent
 
-    - name: Install Chrome (Optional)
-      run: |
-        brew install --cask google-chrome
-
-    - name: Run Python script
+    - name: Run LDAL
       run: python LDAL.py
