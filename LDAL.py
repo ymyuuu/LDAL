@@ -10,6 +10,7 @@ import pytz
 from datetime import datetime
 from fake_useragent import UserAgent
 import os  # 用于读取环境变量
+import base64  # 用于 Base64 编码解码
 
 # 设置中国北京时间时区
 tz = pytz.timezone('Asia/Shanghai')
@@ -26,9 +27,13 @@ logging.Formatter.converter = lambda *args: datetime.now(tz).timetuple()
 USERNAME = os.getenv('USERNAME')
 PASSWORD = os.getenv('PASSWORD')
 
-# 主页URL与RSS URL
-HOME_URL = "https://linux.do/"
-RSS_URL = "https://linux.do/latest.rss"
+# Base64 编码后的URL
+HOME_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby8="
+RSS_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby9sYXRlc3QucnNz"
+
+# 解码Base64编码后的URL
+HOME_URL = base64.b64decode(HOME_URL_ENCODED).decode('utf-8')
+RSS_URL = base64.b64decode(RSS_URL_ENCODED).decode('utf-8')
 
 class LinuxDoBrowser:
     def __init__(self):
