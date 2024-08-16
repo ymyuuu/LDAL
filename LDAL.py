@@ -35,12 +35,14 @@ class LinuxDoBrowser:
         """初始化浏览器、日志信息以及统计变量"""
         options = webdriver.ChromeOptions()
 
-        # 使用 fake_useragent 随机生成 macOS 的 User-Agent
+        # 使用 fake_useragent 随机生成 macOS + Google Chrome 的 User-Agent
         ua = UserAgent()
-        user_agent = ua.random
-        while 'Macintosh' not in user_agent:
-            user_agent = ua.random
-        
+        user_agent = ua.chrome  # 生成 macOS 上的 Chrome UA
+
+        # 确保生成的 User-Agent 是 macOS + Chrome 组合
+        if 'Macintosh' not in user_agent:
+            user_agent = ua['macintosh'].chrome
+
         options.add_argument(f'user-agent={user_agent}')
 
         # 其他Chrome配置
@@ -159,9 +161,9 @@ class LinuxDoBrowser:
 
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
-        total_links = len(links)
+        total_topics = len(links)
         for index, (link, num_posts) in enumerate(links, start=1):
-            self.visit_topic(link, num_posts, index, total_links)
+            self.visit_topic(link, num_posts, index, total_topics)
 
     def summarize(self):
         """输出运行结果总结"""
@@ -188,6 +190,7 @@ class LinuxDoBrowser:
         """关闭浏览器"""
         logging.info("关闭浏览器并退出")
         self.driver.quit()
+
 
 if __name__ == "__main__":
     browser = LinuxDoBrowser()
