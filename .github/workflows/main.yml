@@ -1,0 +1,53 @@
+name: LDAL
+
+on:
+  # 触发条件，可以手动触发、定时触发、推送代码时触发等
+  push:
+    branches:
+      - main  # 当推送到main分支时触发
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  run-linux-do-browser:
+    runs-on: ubuntu-latest  # 使用最新版的 Ubuntu 运行环境
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3  # 最新版的checkout action
+
+    - name: Set up Python
+      uses: actions/setup-python@v4  # 使用最新版的 Python setup action
+      with:
+        python-version: '3.x'  # 使用最新的 Python 3 版本
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install selenium requests fake_useragent pytz
+
+    - name: Install Chrome
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget curl unzip
+        sudo apt-get install -y libxss1 libappindicator1 libindicator7
+        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get -f install -y
+        google-chrome --version
+
+    - name: Install ChromeDriver
+      run: |
+        CHROME_VERSION=$(google-chrome --version | cut -d ' ' -f 3)
+        CHROME_DRIVER_VERSION=$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION)
+        wget https://chromedriver.storage.googleapis.com/$CHROME_DRIVER_VERSION/chromedriver_linux64.zip
+        unzip chromedriver_linux64.zip
+        sudo mv chromedriver /usr/local/bin/chromedriver
+        sudo chmod +x /usr/local/bin/chromedriver
+        chromedriver --version
+
+    - name: Run Python script
+      env:
+        USERNAME: ${{ secrets.USERNAME }}  # 使用环境变量中的用户名
+        PASSWORD: ${{ secrets.PASSWORD }}  # 使用环境变量中的密码
+      run: |
+        python LDAL.py  # 替换为你的 Python 脚本文件名
+
