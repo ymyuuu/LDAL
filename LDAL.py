@@ -73,7 +73,7 @@ class LinuxDoBrowser:
         self.driver.find_element(By.ID, "login-account-password").send_keys(PASSWORD)
 
         # 提交登录
-        self.driver.find_element(By.ID, "login-button").click()
+        self.driver.findElement(By.ID, "login-button").click()
 
         # 确认登录成功
         WebDriverWait(self.driver, 10).until(
@@ -135,10 +135,11 @@ class LinuxDoBrowser:
         for i in range(2, num_posts + 1):
             sub_topic_url = f"{link}/{i}"
             retries = 0
+            progress = f"({i - 1}/{num_posts})"  # 帖子进度显示
             while retries < max_retries:
                 try:
-                    # 将输出改为显示第几楼
-                    logging.info(f"访问第 {i} 楼")
+                    # 将输出改为显示第几楼，并显示进度
+                    logging.info(f"访问第 {i} 楼 {progress}")
                     self.driver.get(sub_topic_url)
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
