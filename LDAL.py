@@ -41,8 +41,11 @@ class LinuxDoBrowser:
         options.add_argument(f'user-agent={user_agent}')
 
         # 其他Chrome配置
-        options.add_argument('--disable-gpu')
-        options.add_argument('--no-sandbox')
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless')  # 无头模式
+        options.add_argument('--disable-gpu')  # 禁用 GPU 加速
+        options.add_argument('--no-sandbox')  # 取消沙箱模式
+        options.add_argument('--disable-dev-shm-usage')  # 共享内存问题
 
         # 启动浏览器
         self.driver = webdriver.Chrome(options=options)
