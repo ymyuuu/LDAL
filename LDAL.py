@@ -35,11 +35,9 @@ class LinuxDoBrowser:
         """初始化浏览器、日志信息以及统计变量"""
         options = webdriver.ChromeOptions()
 
-        # 使用 fake_useragent 随机生成 Mac User-Agent
+        # 使用 fake_useragent 随机生成 Mac 的 User-Agent
         ua = UserAgent()
         user_agent = ua.random
-        while 'Macintosh' not in user_agent:
-            user_agent = ua.random
         options.add_argument(f'user-agent={user_agent}')
 
         # 其他Chrome配置
@@ -73,7 +71,7 @@ class LinuxDoBrowser:
         self.driver.find_element(By.ID, "login-account-password").send_keys(PASSWORD)
 
         # 提交登录
-        self.driver.findElement(By.ID, "login-button").click()
+        self.driver.find_element(By.ID, "login-button").click()
 
         # 确认登录成功
         WebDriverWait(self.driver, 10).until(
@@ -102,13 +100,13 @@ class LinuxDoBrowser:
         logging.info(f"解析完成，共提取 {len(links)} 个主题链接")
         return links
 
-    def visit_topic(self, link, num_posts, progress):
+    def visit_topic(self, link, num_posts, index, total):
         """访问单个主题，并处理其帖子"""
         max_retries = 3  # 设置最大重试次数
         retries = 0
         while retries < max_retries:
             try:
-                logging.info(f"访问主题链接: {link} {progress}")
+                logging.info(f"访问主题链接 ({index}/{total}): {link}")
                 self.driver.get(link)
                 WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
@@ -135,11 +133,10 @@ class LinuxDoBrowser:
         for i in range(2, num_posts + 1):
             sub_topic_url = f"{link}/{i}"
             retries = 0
-            progress = f"({i - 1}/{num_posts})"  # 帖子进度显示
             while retries < max_retries:
                 try:
-                    # 将输出改为显示第几楼，并显示进度
-                    logging.info(f"访问第 {i} 楼 {progress}")
+                    # 将输出改为显示第几楼，并加上楼层进度
+                    logging.info(f"访问第 {i}/{num_posts} 楼")
                     self.driver.get(sub_topic_url)
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
@@ -159,10 +156,9 @@ class LinuxDoBrowser:
 
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
-        total_topics = len(links)
-        for index, (link, num_posts) in enumerate(links):
-            progress = f"({index + 1}/{total_topics})"
-            self.visit_topic(link, num_posts, progress)
+        total_links = len(links)
+        for index, (link, num_posts) in enumerate(links, start=1):
+            self.visit_topic(link, num_posts, index, total_links)
 
     def summarize(self):
         """输出运行结果总结"""
