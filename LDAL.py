@@ -35,13 +35,14 @@ class LinuxDoBrowser:
         """初始化浏览器、日志信息以及统计变量"""
         options = webdriver.ChromeOptions()
 
-        # 使用 fake_useragent 随机生成 User-Agent
+        # 使用 fake_useragent 随机生成 Mac User-Agent
         ua = UserAgent()
         user_agent = ua.random
+        while 'Macintosh' not in user_agent:
+            user_agent = ua.random
         options.add_argument(f'user-agent={user_agent}')
 
         # 其他Chrome配置
-        options = webdriver.ChromeOptions()
         options.add_argument('--headless')  # 无头模式
         options.add_argument('--disable-gpu')  # 禁用 GPU 加速
         options.add_argument('--no-sandbox')  # 取消沙箱模式
@@ -101,13 +102,13 @@ class LinuxDoBrowser:
         logging.info(f"解析完成，共提取 {len(links)} 个主题链接")
         return links
 
-    def visit_topic(self, link, num_posts):
+    def visit_topic(self, link, num_posts, progress):
         """访问单个主题，并处理其帖子"""
         max_retries = 3  # 设置最大重试次数
         retries = 0
         while retries < max_retries:
             try:
-                logging.info(f"访问主题链接: {link}")
+                logging.info(f"访问主题链接: {link} {progress}")
                 self.driver.get(link)
                 WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
@@ -157,8 +158,10 @@ class LinuxDoBrowser:
 
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
-        for link, num_posts in links:
-            self.visit_topic(link, num_posts)
+        total_topics = len(links)
+        for index, (link, num_posts) in enumerate(links):
+            progress = f"({index + 1}/{total_topics})"
+            self.visit_topic(link, num_posts, progress)
 
     def summarize(self):
         """输出运行结果总结"""
@@ -185,7 +188,6 @@ class LinuxDoBrowser:
         """关闭浏览器"""
         logging.info("关闭浏览器并退出")
         self.driver.quit()
-
 
 if __name__ == "__main__":
     browser = LinuxDoBrowser()
