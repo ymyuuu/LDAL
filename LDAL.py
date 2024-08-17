@@ -1,6 +1,4 @@
-import json
 import logging
-import os
 import time
 import requests
 import xml.etree.ElementTree as ET
@@ -11,8 +9,10 @@ from selenium.webdriver.support import expected_conditions as EC
 import pytz
 from datetime import datetime
 from fake_useragent import UserAgent
-from threading import Thread
-import base64
+import os  # 用于读取环境变量
+import base64  # 用于 Base64 编码解码
+import json  # 用于解析JSON格式的账号信息
+from threading import Thread  # 多线程处理
 
 # 设置中国北京时间时区
 tz = pytz.timezone('Asia/Shanghai')
@@ -23,35 +23,38 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
+# 将时间格式转换为北京时间
 logging.Formatter.converter = lambda *args: datetime.now(tz).timetuple()
-
-# Base64 编码后的URL
-HOME_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby8="
-RSS_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby9sYXRlc3QucnNz"
-
-# 解码Base64编码后的URL
-HOME_URL = base64.b64decode(HOME_URL_ENCODED).decode('utf-8')
-RSS_URL = base64.b64decode(RSS_URL_ENCODED).decode('utf-8')
 
 def mask_account(account):
     """
-    对账号进行打码处理，中间部分替换为 '*'。
+    对账号进行打码处理，根据账号长度动态决定保留的字符数量。
 
-    如果账号长度小于等于2，则全部替换为 '*'
-    否则，仅保留账号的首尾字符，中间部分用 '*' 替换。
+    规则：
+    - 账号长度 <= 2: 全部替换为 '*'
+    - 账号长度 3-5: 保留首尾字符，中间部分用 '*' 替换
+    - 账号长度 6-10: 保留首尾各2个字符，中间部分用 '*' 替换
+    - 账号长度 > 10: 保留首尾各3个字符，中间部分用 '*' 替换
     """
-    if len(account) <= 2:
-        return '*' * len(account)
-    return account[0] + '*' * (len(account) - 2) + account[-1]
+    length = len(account)
+    
+    if length <= 2:
+        return '*' * length
+    elif length <= 5:
+        return account[0] + '*' * (length - 2) + account[-1]
+    elif length <= 10:
+        return account[:2] + '*' * (length - 4) + account[-2:]
+    else:
+        return account[:3] + '*' * (length - 6) + account[-3:]
 
 class LinuxDoBrowser(Thread):
     def __init__(self, username, password):
         """
-        初始化浏览器实例，并设置相关变量。
+        初始化浏览器、日志信息以及统计变量。
 
         参数:
-        username: 账号名
-        password: 密码
+        - username: 登录账号
+        - password: 登录密码
         """
         super().__init__()
         self.username = username
@@ -59,19 +62,22 @@ class LinuxDoBrowser(Thread):
         self.masked_username = mask_account(username)  # 将账号打码
 
         options = webdriver.ChromeOptions()
+
+        # 使用 fake_useragent 随机生成 macOS + Google Chrome 的 User-Agent
         ua = UserAgent()
 
-        # 随机生成符合条件的 User-Agent（macOS + Chrome）
+        # 生成随机的 Chrome User-Agent，并确保它来自 macOS
         user_agent = ua.random
         while "Macintosh" not in user_agent or "Chrome" not in user_agent:
             user_agent = ua.random
 
-        # 设置浏览器选项
         options.add_argument(f'user-agent={user_agent}')
+
+        # 其他Chrome配置
         options.add_argument('--headless')  # 无头模式
-        options.add_argument('--disable-gpu')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')  # 禁用 GPU 加速
+        options.add_argument('--no-sandbox')  # 取消沙箱模式
+        options.add_argument('--disable-dev-shm-usage')  # 共享内存问题
 
         # 启动浏览器
         self.driver = webdriver.Chrome(options=options)
@@ -79,16 +85,17 @@ class LinuxDoBrowser(Thread):
         self.total_topics_visited = 0  # 记录访问的主题数量
         self.total_posts_visited = 0   # 记录访问的帖子数量
         self.start_time = time.time()  # 记录程序开始时间
-
-        # 输出启动信息并打开主页
         logging.info(f"[{self.masked_username}] 程序启动并打开主页，使用的 User-Agent: {user_agent}")
-        self.driver.get(HOME_URL)
+
+        # Base64 编码后的URL
+        HOME_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby8="
+        self.HOME_URL = base64.b64decode(HOME_URL_ENCODED).decode('utf-8')
+
+        self.driver.get(self.HOME_URL)
 
     def login(self):
         """
-        执行登录操作。
-
-        通过点击登录按钮，输入账号和密码，最终确认登录成功。
+        执行登录操作，输入用户名和密码，并确认登录成功。
         """
         logging.info(f"[{self.masked_username}] 点击登录按钮并输入用户名和密码")
         
@@ -103,10 +110,10 @@ class LinuxDoBrowser(Thread):
         ).send_keys(self.username)
         self.driver.find_element(By.ID, "login-account-password").send_keys(self.password)
 
-        # 提交登录表单
+        # 提交登录
         self.driver.find_element(By.ID, "login-button").click()
 
-        # 等待确认登录成功
+        # 确认登录成功
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.ID, "current-user"))
         )
@@ -114,14 +121,19 @@ class LinuxDoBrowser(Thread):
 
     def fetch_rss_links(self):
         """
-        请求并解析RSS数据，提取主题链接及其对应的帖子数量。
+        请求并解析RSS数据，返回主题链接及其对应的帖子数量。
 
         返回:
-        包含链接和帖子数量的列表
+        - 一个包含元组的列表，每个元组包含一个主题链接和帖子数量
         """
         logging.info(f"[{self.masked_username}] 请求并解析RSS数据")
+
+        # Base64 编码后的URL
+        RSS_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby9sYXRlc3QucnNz"
+        RSS_URL = base64.b64decode(RSS_URL_ENCODED).decode('utf-8')
+
         response = requests.get(RSS_URL)
-        response.raise_for_status()  # 检查请求是否成功
+        response.raise_for_status()
 
         # 解析XML格式的RSS数据
         root = ET.fromstring(response.content)
@@ -143,16 +155,15 @@ class LinuxDoBrowser(Thread):
         访问单个主题，并处理其帖子。
 
         参数:
-        link: 主题链接
-        num_posts: 帖子数量
-        index: 当前主题索引
-        total: 总主题数量
+        - link: 主题链接
+        - num_posts: 主题中的帖子数量
+        - index: 当前主题的索引
+        - total: 主题总数量
         """
         max_retries = 3  # 设置最大重试次数
         retries = 0
         while retries < max_retries:
             try:
-                # 访问主题并等待页面加载完成
                 logging.info(f"[{self.masked_username}] 访问主题链接 ({index}/{total}): {link}")
                 self.driver.get(link)
                 WebDriverWait(self.driver, 10).until(
@@ -176,11 +187,11 @@ class LinuxDoBrowser(Thread):
 
     def visit_posts(self, link, num_posts):
         """
-        访问主题下的帖子部分，并包含重试机制。
+        访问主题下的帖子部分，包含重试机制。
 
         参数:
-        link: 主题链接
-        num_posts: 帖子数量
+        - link: 主题链接
+        - num_posts: 主题中的帖子数量
         """
         max_retries = 3  # 设置最大重试次数
         for i in range(2, num_posts + 1):
@@ -188,7 +199,6 @@ class LinuxDoBrowser(Thread):
             retries = 0
             while retries < max_retries:
                 try:
-                    # 输出访问的楼层信息，并访问对应链接
                     logging.info(f"[{self.masked_username}] 访问第 {i}/{num_posts} 楼")
                     self.driver.get(sub_topic_url)
                     WebDriverWait(self.driver, 10).until(
@@ -205,61 +215,40 @@ class LinuxDoBrowser(Thread):
                     time.sleep(2)  # 等待2秒再重试
 
             if retries == max_retries:
-                logging.error(f"[{self.masked_username}] 多次尝试后依然无法访问第 {i} 楼，跳过此帖子")
-
-    def visit_topics(self, links):
-        """
-        依次访问主题部分，并计数已访问的帖子数量。
-
-        参数:
-        links: 包含主题链接和帖子数量的列表
-        """
-        total_topics = len(links)
-        for index, (link, num_posts) in enumerate(links, start=1):
-            self.visit_topic(link, num_posts, index, total_topics)
-
-    def summarize(self):
-        """
-        输出运行结果总结，包括总耗时、访问的主题和帖子数量。
-        """
-        end_time = time.time()
-        elapsed_time = end_time - self.start_time
-        summary = (
-            f"[{self.masked_username}] 程序运行完成：\n"
-            f" - 总耗时: {elapsed_time:.2f} 秒\n"
-            f" - 访问的主题数量: {self.total_topics_visited} 个\n"
-            f" - 访问的帖子数量: {self.total_posts_visited} 个\n"
-        )
-        logging.info(summary)
+                logging.error(f"[{self.masked_username}] 多次尝试后依然无法访问: {sub_topic_url}，跳过此楼层")
 
     def run(self):
         """
-        线程的主运行函数，包括登录、访问主题、总结运行情况等操作。
+        线程运行的主要逻辑，包括登录、获取RSS数据、以及逐个访问主题和帖子。
         """
-        logging.info(f"[{self.masked_username}] 程序开始运行")
-        self.login()
-        links = self.fetch_rss_links()
-        if links:
-            self.visit_topics(links)
-        self.summarize()
+        try:
+            self.login()  # 登录操作
+            links = self.fetch_rss_links()  # 获取RSS数据
+
+            # 逐个访问每个主题
+            for index, (link, num_posts) in enumerate(links, start=1):
+                self.visit_topic(link, num_posts, index, len(links))
+
+        finally:
+            self.close()  # 关闭浏览器，并记录日志信息
 
     def close(self):
         """
-        关闭浏览器并退出程序。
+        关闭浏览器，并输出统计日志。
         """
-        logging.info(f"[{self.masked_username}] 关闭浏览器并退出")
-        self.driver.quit()
+        elapsed_time = time.time() - self.start_time
+        logging.info(f"[{self.masked_username}] 程序结束，共访问 {self.total_topics_visited} 个主题，{self.total_posts_visited} 个帖子，耗时 {elapsed_time:.2f} 秒")
+        self.driver.quit()  # 关闭浏览器
 
 def load_accounts():
     """
-    从环境变量加载账号信息。
+    从环境变量中读取并解析账号信息。
 
     返回:
-    包含账号和密码的列表
+    - 账号信息的列表，每个元素是包含用户名和密码的字典。
     """
-    accounts_json = os.getenv('ACCOUNTS_JSON')  # 从环境变量中读取 JSON 格式的账号信息
-    accounts = json.loads(accounts_json)  # 将 JSON 字符串转换为 Python 对象
-    return accounts
+    accounts_json = os.getenv("ACCOUNTS_JSON")
+    return json.loads(accounts_json)
 
 if __name__ == "__main__":
     accounts = load_accounts()  # 加载所有账号
