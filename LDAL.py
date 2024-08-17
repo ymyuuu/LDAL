@@ -125,7 +125,7 @@ class LinuxDoBrowser(Thread):
     def visit_topic(self, link, num_posts, index, total):
         """访问单个主题，并处理其帖子"""
         masked_username = mask_account(self.username)
-        max_retries = 3  # 设置最大重试次数
+        max_retries = 10  # 设置最大重试次数
         retries = 0
         while retries < max_retries:
             try:
@@ -153,7 +153,7 @@ class LinuxDoBrowser(Thread):
     def visit_posts(self, link, num_posts):
         """访问主题下的帖子部分，包含重试机制"""
         masked_username = mask_account(self.username)
-        max_retries = 3  # 设置最大重试次数
+        max_retries = 10  # 设置最大重试次数
         for i in range(2, num_posts + 1):
             sub_topic_url = f"{link}/{i}"
             retries = 0
