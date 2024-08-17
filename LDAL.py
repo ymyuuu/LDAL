@@ -50,12 +50,12 @@ class LinuxDoBrowser(Thread):
         self.password = password
         options = webdriver.ChromeOptions()
 
-        # 使用 fake_useragent 随机生成 macOS + Google Chrome 的 User-Agent
+        # 使用 fake_useragent 随机生成 macOS 的 User-Agent
         ua = UserAgent()
 
-        # 生成随机的 Chrome User-Agent，并确保它来自 macOS
+        # 生成随机的 macOS User-Agent
         user_agent = ua.random
-        while "Macintosh" not in user_agent or "Chrome" not in user_agent:
+        while "Macintosh" not in user_agent:
             user_agent = ua.random
 
         options.add_argument(f'user-agent={user_agent}')
