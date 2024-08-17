@@ -81,7 +81,7 @@ class LinuxDoBrowser(Thread):
         self.driver.find_element(By.ID, "login-account-password").send_keys(self.password)
 
         # 提交登录
-        self.driver.findElement(By.ID, "login-button").click()
+        self.driver.find_element(By.ID, "login-button").click()
 
         # 确认登录成功
         WebDriverWait(self.driver, 10).until(
@@ -121,7 +121,7 @@ class LinuxDoBrowser(Thread):
                 WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
                 )
-                time.sleep(3)  # 访问每个主题后延迟3秒
+                time.sleep(random.uniform(2, 5))  # 访问每个主题后随机延迟2到5秒
                 self.total_topics_visited += 1
 
                 # 访问主题下的帖子部分
@@ -151,7 +151,7 @@ class LinuxDoBrowser(Thread):
                         EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
                     )
                     self.total_posts_visited += 1
-                    time.sleep(3)  # 访问每个部分后延迟3秒
+                    time.sleep(random.uniform(2, 5))  # 访问每个部分后随机延迟2到5秒
                     break  # 访问成功，跳出重试循环
 
                 except Exception as e:
