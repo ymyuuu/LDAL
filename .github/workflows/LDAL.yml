@@ -2,8 +2,8 @@ name: LDAL
 
 on:
   push:
-    branches:
-      - main
+    # branches:
+    #   - main
   pull_request:
   workflow_dispatch:  # 允许手动触发工作流
   schedule:
