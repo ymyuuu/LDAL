@@ -143,7 +143,7 @@ class LinuxDoBrowser(Thread):
 
             except Exception as e:
                 retries += 1
-                logging.warning(f"{masked_username} 访问主题失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
+                logging.warning(f"{masked_username} 访问主题失败，正在重试 ({retries}/{max_retries})...")
                 self.driver.refresh()  # 刷新页面重试
                 time.sleep(2)  # 等待2秒再重试
 
@@ -170,7 +170,7 @@ class LinuxDoBrowser(Thread):
 
                 except Exception as e:
                     retries += 1
-                    logging.warning(f"{masked_username} 访问第 {i} 楼失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
+                    logging.warning(f"{masked_username} 访问第 {i} 楼失败，正在重试 ({retries}/{max_retries})...")
                     self.driver.refresh()  # 刷新页面重试
                     time.sleep(2)  # 等待2秒再重试
 
