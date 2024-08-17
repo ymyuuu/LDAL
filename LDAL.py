@@ -34,6 +34,14 @@ RSS_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby9sYXRlc3QucnNz"
 HOME_URL = base64.b64decode(HOME_URL_ENCODED).decode('utf-8')
 RSS_URL = base64.b64decode(RSS_URL_ENCODED).decode('utf-8')
 
+def mask_account(username):
+    """对账号进行打码处理，保留首尾部分字符"""
+    if len(username) <= 4:
+        return username  # 如果账号长度较短，则不进行打码处理
+    else:
+        mask_length = len(username) - 4
+        return username[:2] + '*' * mask_length + username[-2:]
+
 class LinuxDoBrowser(Thread):
     def __init__(self, username, password):
         """初始化方法，用于设置浏览器配置、登录信息等"""
@@ -62,12 +70,15 @@ class LinuxDoBrowser(Thread):
         self.total_topics_visited = 0  # 记录访问的主题数量
         self.total_posts_visited = 0   # 记录访问的帖子数量
         self.start_time = time.time()  # 记录程序开始时间
-        logging.info(f"{self.username} 程序启动并打开主页，使用的 User-Agent: {user_agent}")
+
+        masked_username = mask_account(self.username)
+        logging.info(f"{masked_username} 程序启动并打开主页，使用的 User-Agent: {user_agent}")
         self.driver.get(HOME_URL)
 
     def login(self):
         """执行登录操作"""
-        logging.info(f"{self.username} 点击登录按钮并输入用户名和密码")
+        masked_username = mask_account(self.username)
+        logging.info(f"{masked_username} 点击登录按钮并输入用户名和密码")
         
         # 点击登录按钮
         WebDriverWait(self.driver, 10).until(
@@ -87,11 +98,12 @@ class LinuxDoBrowser(Thread):
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.ID, "current-user"))
         )
-        logging.info(f"{self.username} 登录成功")
+        logging.info(f"{masked_username} 登录成功")
 
     def fetch_rss_links(self):
         """请求并解析 RSS 数据，返回主题链接及其对应的帖子数量"""
-        logging.info(f"{self.username} 请求并解析 RSS 数据")
+        masked_username = mask_account(self.username)
+        logging.info(f"{masked_username} 请求并解析 RSS 数据")
         response = requests.get(RSS_URL)
         response.raise_for_status()
 
@@ -107,16 +119,17 @@ class LinuxDoBrowser(Thread):
             num_posts = int(description.split(" 个帖子 - ")[0].split("<small>")[-1].strip())
             links.append((link, num_posts))
 
-        logging.info(f"{self.username} 解析完成，共提取 {len(links)} 个主题链接")
+        logging.info(f"{masked_username} 解析完成，共提取 {len(links)} 个主题链接")
         return links
 
     def visit_topic(self, link, num_posts, index, total):
         """访问单个主题，并处理其帖子"""
+        masked_username = mask_account(self.username)
         max_retries = 3  # 设置最大重试次数
         retries = 0
         while retries < max_retries:
             try:
-                logging.info(f"{self.username} 访问主题链接 ({index}/{total}): {link}")
+                logging.info(f"{masked_username} 访问主题链接 ({index}/{total}): {link}")
                 self.driver.get(link)
                 WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
@@ -130,22 +143,23 @@ class LinuxDoBrowser(Thread):
 
             except Exception as e:
                 retries += 1
-                logging.warning(f"{self.username} 访问主题失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
+                logging.warning(f"{masked_username} 访问主题失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
                 self.driver.refresh()  # 刷新页面重试
                 time.sleep(2)  # 等待2秒再重试
 
         if retries == max_retries:
-            logging.error(f"{self.username} 多次尝试后依然无法访问: {link}，跳过此主题")
+            logging.error(f"{masked_username} 多次尝试后依然无法访问: {link}，跳过此主题")
 
     def visit_posts(self, link, num_posts):
         """访问主题下的帖子部分，包含重试机制"""
+        masked_username = mask_account(self.username)
         max_retries = 3  # 设置最大重试次数
         for i in range(2, num_posts + 1):
             sub_topic_url = f"{link}/{i}"
             retries = 0
             while retries < max_retries:
                 try:
-                    logging.info(f"{self.username} 访问第 {i}/{num_posts} 楼")
+                    logging.info(f"{masked_username} 访问第 {i}/{num_posts} 楼")
                     self.driver.get(sub_topic_url)
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
@@ -156,12 +170,12 @@ class LinuxDoBrowser(Thread):
 
                 except Exception as e:
                     retries += 1
-                    logging.warning(f"{self.username} 访问第 {i} 楼失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
+                    logging.warning(f"{masked_username} 访问第 {i} 楼失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
                     self.driver.refresh()  # 刷新页面重试
                     time.sleep(2)  # 等待2秒再重试
 
             if retries == max_retries:
-                logging.error(f"{self.username} 多次尝试后依然无法访问第 {i} 楼，跳过此帖子")
+                logging.error(f"{masked_username} 多次尝试后依然无法访问第 {i} 楼，跳过此帖子")
 
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
@@ -174,8 +188,9 @@ class LinuxDoBrowser(Thread):
         """输出运行结果总结"""
         end_time = time.time()
         elapsed_time = end_time - self.start_time
+        masked_username = mask_account(self.username)
         summary = (
-            f"{self.username} 程序运行完成：\n"
+            f"{masked_username} 程序运行完成：\n"
             f" - 总耗时: {elapsed_time:.2f} 秒\n"
             f" - 访问的主题数量: {self.total_topics_visited} 个\n"
             f" - 访问的帖子数量: {self.total_posts_visited} 个\n"
@@ -184,22 +199,20 @@ class LinuxDoBrowser(Thread):
 
     def run(self):
         """启动浏览器自动化流程"""
-        logging.info(f"{self.username} 程序开始运行")
-        self.login()  # 登录失败会直接终止
-        links = self.fetch_rss_links()  # RSS 解析失败会直接终止
-        if links:
-            self.visit_topics(links)
+        masked_username = mask_account(self.username)
+        logging.info(f"{masked_username} 程序开始运行")
+        self.login()
+        links = self.fetch_rss_links()
+        self.visit_topics(links)
         self.summarize()
 
     def close(self):
-        """关闭浏览器"""
-        logging.info(f"{self.username} 关闭浏览器并退出")
+        """关闭浏览器实例"""
         self.driver.quit()
 
-# 从环境变量加载账号信息的函数
 def load_accounts():
-    """从环境变量加载账号信息"""
-    accounts_json = os.getenv('ACCOUNTS_JSON')  # 获取存储在环境变量中的 JSON 数据
+    """从环境变量中加载并解析账户信息"""
+    accounts_json = os.getenv("ACCOUNTS_JSON", "[]")
     accounts = json.loads(accounts_json)  # 将 JSON 字符串解析为 Python 列表
     return accounts
 
