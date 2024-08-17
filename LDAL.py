@@ -20,7 +20,7 @@ tz = pytz.timezone('Asia/Shanghai')
 # 配置日志记录，添加时间戳，并将时间转换为北京时间
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - [%(message)s]',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logging.Formatter.converter = lambda *args: datetime.now(tz).timetuple()
@@ -198,10 +198,9 @@ class LinuxDoBrowser(Thread):
 def load_accounts():
     """从环境变量加载账号信息"""
     accounts_json = os.getenv('ACCOUNTS_JSON')  # 获取存储在环境变量中的 JSON 数据
-    accounts = json.loads(accounts_json)  # 将 JSON 字符串解析为 Python 字典
+    accounts = json.loads(accounts_json)  # 将 JSON 字符串解析为 Python 列表
     return accounts
 
-# 主程序入口
 if __name__ == "__main__":
     accounts = load_accounts()
     browsers = []
