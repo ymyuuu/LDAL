@@ -13,6 +13,7 @@ import os
 import base64
 import json
 from threading import Thread
+import random  # 导入 random 模块
 
 # 设置中国北京时间时区
 tz = pytz.timezone('Asia/Shanghai')
@@ -80,7 +81,7 @@ class LinuxDoBrowser(Thread):
         self.driver.find_element(By.ID, "login-account-password").send_keys(self.password)
 
         # 提交登录
-        self.driver.find_element(By.ID, "login-button").click()
+        self.driver.findElement(By.ID, "login-button").click()
 
         # 确认登录成功
         WebDriverWait(self.driver, 10).until(
@@ -165,6 +166,7 @@ class LinuxDoBrowser(Thread):
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
         total_topics = len(links)
+        random.shuffle(links)  # 随机打乱主题链接顺序
         for index, (link, num_posts) in enumerate(links, start=1):
             self.visit_topic(link, num_posts, index, total_topics)
 
