@@ -1,6 +1,4 @@
-import json
 import logging
-import os
 import time
 import requests
 import xml.etree.ElementTree as ET
@@ -11,8 +9,10 @@ from selenium.webdriver.support import expected_conditions as EC
 import pytz
 from datetime import datetime
 from fake_useragent import UserAgent
-from threading import Thread
+import os
 import base64
+import json
+from threading import Thread
 
 # 设置中国北京时间时区
 tz = pytz.timezone('Asia/Shanghai')
@@ -23,30 +23,28 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
-# 日志格式中的时间转换为北京时间
 logging.Formatter.converter = lambda *args: datetime.now(tz).timetuple()
 
-# Base64 编码后的URL
+# 从环境变量中读取 Base64 编码后的URL
 HOME_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby8="
 RSS_URL_ENCODED = "aHR0cHM6Ly9saW51eC5kby9sYXRlc3QucnNz"
 
-# 解码Base64编码后的URL
+# 解码 Base64 编码后的 URL
 HOME_URL = base64.b64decode(HOME_URL_ENCODED).decode('utf-8')
 RSS_URL = base64.b64decode(RSS_URL_ENCODED).decode('utf-8')
 
-# 定义浏览器自动化类，并继承自Thread类，以便支持多线程
 class LinuxDoBrowser(Thread):
     def __init__(self, username, password):
         """初始化方法，用于设置浏览器配置、登录信息等"""
         super().__init__()
         self.username = username
         self.password = password
-
-        # 初始化浏览器选项
         options = webdriver.ChromeOptions()
+
+        # 使用 fake_useragent 随机生成 macOS + Google Chrome 的 User-Agent
         ua = UserAgent()
 
-        # 随机生成 User-Agent 并确保它是 macOS 下的 Chrome
+        # 生成随机的 Chrome User-Agent，并确保它来自 macOS
         user_agent = ua.random
         while "Macintosh" not in user_agent or "Chrome" not in user_agent:
             user_agent = ua.random
@@ -55,34 +53,33 @@ class LinuxDoBrowser(Thread):
         options.add_argument('--headless')  # 无头模式
         options.add_argument('--disable-gpu')  # 禁用 GPU 加速
         options.add_argument('--no-sandbox')  # 取消沙箱模式
-        options.add_argument('--disable-dev-shm-usage')  # 解决共享内存问题
+        options.add_argument('--disable-dev-shm-usage')  # 共享内存问题
 
-        # 启动浏览器并设置隐式等待时间
+        # 启动浏览器
         self.driver = webdriver.Chrome(options=options)
         self.driver.implicitly_wait(10)
         self.total_topics_visited = 0  # 记录访问的主题数量
         self.total_posts_visited = 0   # 记录访问的帖子数量
-        self.start_time = time.time()  # 记录程序启动时间
+        self.start_time = time.time()  # 记录程序开始时间
         logging.info(f"[{self.username}] 程序启动并打开主页，使用的 User-Agent: {user_agent}")
-        self.driver.get(HOME_URL)  # 打开主页
+        self.driver.get(HOME_URL)
 
     def login(self):
         """执行登录操作"""
         logging.info(f"[{self.username}] 点击登录按钮并输入用户名和密码")
         
-        # 等待并点击登录按钮
+        # 点击登录按钮
         WebDriverWait(self.driver, 10).until(
             EC.element_to_be_clickable((By.CSS_SELECTOR, ".login-button .d-button-label"))
         ).click()
 
-        # 输入用户名
+        # 输入用户名和密码
         WebDriverWait(self.driver, 10).until(
             EC.presence_of_element_located((By.ID, "login-account-name"))
         ).send_keys(self.username)
-        # 输入密码
         self.driver.find_element(By.ID, "login-account-password").send_keys(self.password)
 
-        # 提交登录表单
+        # 提交登录
         self.driver.find_element(By.ID, "login-button").click()
 
         # 确认登录成功
@@ -92,19 +89,17 @@ class LinuxDoBrowser(Thread):
         logging.info(f"[{self.username}] 登录成功")
 
     def fetch_rss_links(self):
-        """请求并解析RSS数据，返回主题链接及其对应的帖子数量"""
-        logging.info(f"[{self.username}] 请求并解析RSS数据")
-        
-        # 发起HTTP GET请求获取RSS数据
+        """请求并解析 RSS 数据，返回主题链接及其对应的帖子数量"""
+        logging.info(f"[{self.username}] 请求并解析 RSS 数据")
         response = requests.get(RSS_URL)
-        response.raise_for_status()  # 如果请求失败，抛出异常
+        response.raise_for_status()
 
-        # 解析RSS XML数据
+        # 解析 XML 格式的 RSS 数据
         root = ET.fromstring(response.content)
         items = root.findall('./channel/item')
         links = []
 
-        # 提取每个项目的链接和帖子数量
+        # 遍历 RSS 中的每个项目，提取链接和帖子数量
         for item in items:
             link = item.find('link').text
             description = item.find('description').text
@@ -121,21 +116,21 @@ class LinuxDoBrowser(Thread):
         while retries < max_retries:
             try:
                 logging.info(f"[{self.username}] 访问主题链接 ({index}/{total}): {link}")
-                self.driver.get(link)  # 打开主题链接
+                self.driver.get(link)
                 WebDriverWait(self.driver, 10).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
                 )
-                time.sleep(3)  # 每次访问后等待3秒
-                self.total_topics_visited += 1  # 记录已访问的主题数量
+                time.sleep(3)  # 访问每个主题后延迟3秒
+                self.total_topics_visited += 1
 
                 # 访问主题下的帖子部分
                 self.visit_posts(link, num_posts)
-                break  # 成功访问后跳出重试循环
+                break  # 访问成功，跳出重试循环
 
             except Exception as e:
                 retries += 1
                 logging.warning(f"[{self.username}] 访问主题失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
-                self.driver.refresh()  # 刷新页面并重试
+                self.driver.refresh()  # 刷新页面重试
                 time.sleep(2)  # 等待2秒再重试
 
         if retries == max_retries:
@@ -145,23 +140,23 @@ class LinuxDoBrowser(Thread):
         """访问主题下的帖子部分，包含重试机制"""
         max_retries = 3  # 设置最大重试次数
         for i in range(2, num_posts + 1):
-            sub_topic_url = f"{link}/{i}"  # 生成每个帖子的URL
+            sub_topic_url = f"{link}/{i}"
             retries = 0
             while retries < max_retries:
                 try:
                     logging.info(f"[{self.username}] 访问第 {i}/{num_posts} 楼")
-                    self.driver.get(sub_topic_url)  # 打开帖子链接
+                    self.driver.get(sub_topic_url)
                     WebDriverWait(self.driver, 10).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, "article"))
                     )
-                    self.total_posts_visited += 1  # 记录已访问的帖子数量
-                    time.sleep(3)  # 每次访问后等待3秒
-                    break  # 成功访问后跳出重试循环
+                    self.total_posts_visited += 1
+                    time.sleep(3)  # 访问每个部分后延迟3秒
+                    break  # 访问成功，跳出重试循环
 
                 except Exception as e:
                     retries += 1
                     logging.warning(f"[{self.username}] 访问第 {i} 楼失败，正在重试 ({retries}/{max_retries})... 错误信息: {e}")
-                    self.driver.refresh()  # 刷新页面并重试
+                    self.driver.refresh()  # 刷新页面重试
                     time.sleep(2)  # 等待2秒再重试
 
             if retries == max_retries:
@@ -169,14 +164,14 @@ class LinuxDoBrowser(Thread):
 
     def visit_topics(self, links):
         """依次访问主题部分，并计数已访问的帖子数量"""
-        total_topics = len(links)  # 计算总主题数
+        total_topics = len(links)
         for index, (link, num_posts) in enumerate(links, start=1):
-            self.visit_topic(link, num_posts, index, total_topics)  # 访问每个主题
+            self.visit_topic(link, num_posts, index, total_topics)
 
     def summarize(self):
         """输出运行结果总结"""
         end_time = time.time()
-        elapsed_time = end_time - self.start_time  # 计算程序总耗时
+        elapsed_time = end_time - self.start_time
         summary = (
             f"[{self.username}] 程序运行完成：\n"
             f" - 总耗时: {elapsed_time:.2f} 秒\n"
@@ -188,16 +183,17 @@ class LinuxDoBrowser(Thread):
     def run(self):
         """启动浏览器自动化流程"""
         logging.info(f"[{self.username}] 程序开始运行")
-        self.login()  # 执行登录操作
-        links = self.fetch_rss_links()  # 获取并解析RSS数据
+        self.login()  # 登录失败会直接终止
+        links = self.fetch_rss_links()  # RSS 解析失败会直接终止
         if links:
-            self.visit_topics(links)  # 访问所有提取到的主题
-        self.summarize()  # 输出总结
+            self.visit_topics(links)
+        self.summarize()
 
     def close(self):
         """关闭浏览器"""
         logging.info(f"[{self.username}] 关闭浏览器并退出")
-        self.driver.quit()  # 关闭浏览器
+        self.driver.quit()
+
 
 # 从环境变量加载账号信息的函数
 def load_accounts():
@@ -214,13 +210,15 @@ if __name__ == "__main__":
     try:
         for account in accounts:
             # 为每个账号启动一个新的浏览器实例，并在独立线程中运行
-            browser = LinuxDoBrowser(username=account["username"], password=account["password"])
+            browser = LinuxDoBrowser(account['username'], account['password'])
+            browser.start()  # 启动线程
             browsers.append(browser)
-            browser.start()
 
+        # 等待所有线程完成
         for browser in browsers:
-            browser.join()  # 等待所有线程完成
+            browser.join()
 
     finally:
+        # 关闭所有浏览器实例
         for browser in browsers:
-            browser.close()  # 关闭所有浏览器实例
+            browser.close()
