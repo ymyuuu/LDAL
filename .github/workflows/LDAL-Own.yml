@@ -14,7 +14,8 @@ jobs:
     runs-on: macos-latest  # 使用 macOS 环境
 
     env:
-      ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
+      USERNAME: ${{ secrets.USERNAME }}
+      PASSWORD: ${{ secrets.PASSWORD }}
 
     steps:
     - name: Checkout code
